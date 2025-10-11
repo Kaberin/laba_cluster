@@ -3,36 +3,50 @@
 #include <winsock2.h>
 #include <vector>
 #include <string>
-
+#include <cstdint>
+#include <mutex>
+#include <thread>
+#include <condition_variable>
+#include <iomanip>
+#include "Types.hpp"
 #include "helper.hpp"
+#include "libs/json.hpp"
+using json = nlohmann::json;
 constexpr auto PORT = 5000;
-constexpr auto MAX_CONNECTIONS = 100;
 
-struct UserInfo {
-    std::string name;
-    SOCKET connection;
-};
-
-std::vector<UserInfo> aConnections(MAX_CONNECTIONS);
+std::vector<SOCKET> aConnections;
 int counter = 0;
 
+std::vector<Response> allResponses;
+std::mutex responseMutex;
+int responsesReceived = 0;
+int totalClients = 0;
+std::condition_variable allResponsesReceived;
 
 void ClientHandler(int index) {
     while (true) {
-        std::string message;
-        if (!ReceiveString(aConnections[index].connection, message)) break;
-        for (int i = 0; i < counter; i++) {
-            if (i == index) {
-                continue;
+        std::string clientResponseString;
+        if (!ReceiveString(aConnections[index], clientResponseString)) break;
+        json clientResponse = json::parse(clientResponseString);
+        Response resp;
+        resp.pointsInCricle = clientResponse[POINTS_IN_CIRCLE];
+        resp.totalPointsNumber = clientResponse[POINTS_TOTAL];
+        resp.id = clientResponse[ID];
+
+        {
+            std::lock_guard<std::mutex> lock(responseMutex);
+            allResponses.push_back(resp);
+            responsesReceived++;
+            if (responsesReceived == totalClients) {
+                allResponsesReceived.notify_one();
             }
-            SendString(aConnections[i].connection, aConnections[index].name + std::string(": "));
-            SendString(aConnections[i].connection, message + std::string("\n"));
         }
+
     };
-    shutdown(aConnections[index].connection, SD_BOTH);
-    closesocket(aConnections[index].connection);
+    shutdown(aConnections[index], SD_BOTH);
+    closesocket(aConnections[index]);
 }
-UserInfo userInfo;
+
 
 int main() {
     WSADATA data;
@@ -53,22 +67,53 @@ int main() {
 
     SOCKET newConnection;
     std::cout << "Srever is working on port " << PORT << "\n";
-    for (int i = 0; i < MAX_CONNECTIONS; ++i) {
+    std::cout << "Enter number of slaves-pcs: ";
+    int pcNumebr = 0;
+    std::cin >> pcNumebr;
+    for (int i = 0; i < pcNumebr; ++i) {
         newConnection = accept(s, reinterpret_cast<SOCKADDR*>(&addr), &size);
         if (newConnection == 0) {
             std::cerr << "Error...\n";
             return 1;
         }
         std::cout << "Client connected!\n";
-        SendString(newConnection, "Hello, you connected to test server!\n Please, enter your username: ");
-        std::string username;
-        ReceiveString(newConnection, username);
-        aConnections[i].connection = newConnection;
-        aConnections[i].name = username;
-        std::cout << "User " << aConnections[i].name << " is now available\n";
+        SendString(newConnection, "Connection with server established.");
+        aConnections.push_back(newConnection);
+        std::cout << "PC " << counter << " is now available'\n";
         counter++;
         CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)ClientHandler, (LPVOID)i, NULL, NULL);
     }
+    totalClients = aConnections.size();
+    std::cout << "All PCs connected! (" << aConnections.size() << "). How many points you want to calculate ? Enter number : ";
+    uint64_t totalPoins = 0;
+    std::cin >> totalPoins;
+
+    auto pointsForEach = totalPoins / aConnections.size();
+    int id = 0;
+    for (auto conncetion : aConnections) {
+        Request req{
+            pointsForEach,
+            id++
+        };
+        json j;
+        j[POINTS_TOTAL] = req.totalPointsNumber;
+        j[ID] = req.id;
+        auto requestString = j.dump();
+        SendString(conncetion, requestString);
+    }
+    std::unique_lock<std::mutex> lock(responseMutex);
+    allResponsesReceived.wait(lock, [] { return responsesReceived == totalClients; });
+    std::cout << "All responses received!\n";
+
+    uint64_t pointsInCircleTotal = 0, totalPoints = 0;
+    for (auto& resp : allResponses) {
+        pointsInCircleTotal += resp.pointsInCricle;
+        totalPoints += resp.totalPointsNumber;
+    }
+
+    double piEstimate = 4.0 * static_cast<double>(pointsInCircleTotal) / static_cast<double>(totalPoints);
+    std::cout << "Estimated PI = " << std::setprecision(10) << piEstimate << "\n";
+
     system("pause");
     closesocket(s);
     WSACleanup();
