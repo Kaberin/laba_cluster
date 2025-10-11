@@ -20,13 +20,14 @@ void ClientHandler() {
         json jreq = json::parse(requestString);
         serverRequset.totalPointsNumber = jreq[POINTS_TOTAL];
         serverRequset.id = jreq[ID];
+        std::cout << "Server request:\n" << jreq.dump(4) << '\n';
         Response clientResponse = PiWithMonteCarlo(serverRequset);
         json jresp;
         jresp[POINTS_IN_CIRCLE] = clientResponse.pointsInCricle;
         jresp[POINTS_TOTAL] = clientResponse.totalPointsNumber;
         jresp[ID] = clientResponse.id;
         std::string responseString = jresp.dump();
-        std::cout << "Client response:\n" << jresp.dump(4);
+        std::cout << "Client response:\n" << jresp.dump(4) << '\n';
         SendString(Connectcion, responseString);
     }
     std::cout << "Server disconnected.\n";
@@ -68,14 +69,6 @@ int main() {
     std::cout << serverMessage;
 
     std::thread clientThread(ClientHandler);
-    //CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)ClientHandler, NULL, NULL, NULL);
-
-    // std::string msg;
-    // while (true) {
-        //     std::getline(std::cin, msg);
-        //     SendString(Connectcion, msg);
-        //     Sleep(10);
-        // }
 
     clientThread.join();
     system("pause");

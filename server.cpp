@@ -77,14 +77,14 @@ int main() {
             return 1;
         }
         std::cout << "Client connected!\n";
-        SendString(newConnection, "Connection with server established.");
+        SendString(newConnection, "Connection with server established.\n");
         aConnections.push_back(newConnection);
-        std::cout << "PC " << counter << " is now available'\n";
+        std::cout << "PC " << counter << " is now available.\n";
         counter++;
         CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)ClientHandler, (LPVOID)i, NULL, NULL);
     }
     totalClients = aConnections.size();
-    std::cout << "All PCs connected! (" << aConnections.size() << "). How many points you want to calculate ? Enter number : ";
+    std::cout << "All PCs connected! (" << aConnections.size() << "). How many points you want to calculate ? Enter number: ";
     uint64_t totalPoins = 0;
     std::cin >> totalPoins;
 
