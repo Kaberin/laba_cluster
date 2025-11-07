@@ -5,16 +5,16 @@ static: server_static client_static
 nonstatic: server client
 
 server:
-	g++ .\server.cpp -o ./build/server.exe -lws2_32 -w -g
+	g++ .\server.cpp -o ./build/server.exe -lws2_32 -w -g -liphlpapi
 
 server_static:
-	g++ .\server.cpp -o ./build/server_static.exe -lws2_32 -w -static
+	g++ .\server.cpp -o ./build/server_static.exe -lws2_32 -w -static -liphlpapi
 
 client:
-	g++ .\client.cpp .\Task.cpp -o ./build/client.exe -lws2_32 -w -g
+	g++ .\client.cpp .\Task.cpp -o ./build/client.exe -lws2_32 -w -g -liphlpapi
 
 client_static:
-	g++ .\client.cpp .\Task.cpp -o ./build/client_static.exe -lws2_32 -w -static
+	g++ .\client.cpp .\Task.cpp -o ./build/client_static.exe -lws2_32 -w -static -liphlpapi
 
 clean: 
 	rmdir /S /Q build

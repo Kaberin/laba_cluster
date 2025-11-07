@@ -65,6 +65,7 @@ int main() {
     listen(s, SOMAXCONN);
     int size = sizeof(addr);
 
+    std::cout << "Current IPv4-adress: " << GetLocalIPv4() << '\n';
     SOCKET newConnection;
     std::cout << "Srever is working on port " << PORT << "\n";
     std::cout << "Enter number of slaves-pcs: ";

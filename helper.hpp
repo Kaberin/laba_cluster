@@ -2,6 +2,12 @@
 #pragma once
 #include <winsock2.h>
 #include <sstream>
+#include <string>
+#include <winsock2.h>
+#include <iphlpapi.h>
+#include <ws2tcpip.h>
+#include <vector>
+
 
 bool ValidateIP(const std::string& ip) {
     std::stringstream s(ip);
@@ -69,4 +75,36 @@ bool ReceiveString(SOCKET s, std::string& out) {
 
     out = std::move(buffer);
     return true;
+}
+
+
+std::string GetLocalIPv4() {
+    ULONG flags = GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST |
+        GAA_FLAG_SKIP_DNS_SERVER | GAA_FLAG_SKIP_FRIENDLY_NAME;
+
+    ULONG bufLen = 15 * 1024;
+    std::vector<char> buffer(bufLen);
+
+    IP_ADAPTER_ADDRESSES* adapters = reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buffer.data());
+
+    if (GetAdaptersAddresses(AF_UNSPEC, flags, nullptr, adapters, &bufLen) != NO_ERROR)
+        return;                                                                           
+
+    for (auto* adapter = adapters; adapter != nullptr; adapter = adapter->Next) {
+        if (adapter->OperStatus != IfOperStatusUp ||
+            adapter->IfType == IF_TYPE_SOFTWARE_LOOPBACK)
+            continue;
+
+        for (auto* addr = adapter->FirstUnicastAddress; addr != nullptr; addr = addr->Next) {
+            if (addr->Address.lpSockaddr->sa_family == AF_INET) { // IPv4
+                char ipStr[INET_ADDRSTRLEN];
+                auto sin = reinterpret_cast<sockaddr_in*>(addr->Address.lpSockaddr);
+
+                if (inet_ntop(AF_INET, &sin->sin_addr, ipStr, sizeof(ipStr)))
+                    return ipStr;
+            }
+        }
+    }
+
+    return {}; 
 }
